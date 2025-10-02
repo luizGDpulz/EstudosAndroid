@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import com.example.estudos.ui.theme.EstudosTheme
 import com.example.estudos.ui.theme.surfaceCardHighlightsDark
-import com.example.estudos.ui.theme.surfaceContainerDark
 
 data class Produto(val nome: String, val preco: Double)
 class MainActivity : ComponentActivity() {
@@ -47,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     Produto("Sabonete Infantil", 5.50),
                     Produto("Óleo Corporal", 22.00)
                 )
-                var totalComprados: Int by remember { mutableIntStateOf(0) }
+                var comprados by remember { mutableStateOf(setOf<String>()) }
 
                 Column(
                     modifier = Modifier
@@ -62,14 +61,18 @@ class MainActivity : ComponentActivity() {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         Text(
-                            text = "Produtos Comprados: $totalComprados/${produtos.size}",
+                            text = "Produtos Comprados: ${comprados.size}/${produtos.size}",
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(10.dp)
                         )
                     }
-                    ProdutoCard(produtos) { comprado ->
-                        if (comprado) totalComprados++ else totalComprados--
+                    ProdutoCard(
+                        produtos = produtos,
+                        comprados = comprados,
+                        onCompraToggle = { produto ->
+                            comprados = if (produto.nome in comprados) { comprados - produto.nome } else {comprados + produto.nome}
                     }
+                    )
                 }
             }
         }
@@ -77,20 +80,20 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ProdutoCard(produtos: List<Produto>, onCompraChange: (Boolean) -> Unit) {
+fun ProdutoCard(produtos: List<Produto>, comprados: Set<String>, onCompraToggle: (Produto) -> Unit) {
     LazyColumn(
         modifier = Modifier.padding(5.dp),
         contentPadding = PaddingValues(bottom = 16.dp), // espaço no fim da lista
         verticalArrangement = Arrangement.spacedBy(10.dp) // espaço entre itens
     ) {
         items(produtos, key = {produto -> produto.nome}) { produto ->
-            var comprado by remember { mutableStateOf(false) } // estado do produto
+            val estaComprado = produto.nome in comprados
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (comprado)
+                    containerColor = if (estaComprado)
                         surfaceCardHighlightsDark.copy(alpha = 0.5f)
                     else
                         MaterialTheme.colorScheme.surfaceContainer
@@ -107,11 +110,8 @@ fun ProdutoCard(produtos: List<Produto>, onCompraChange: (Boolean) -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(5.dp))
 
-                    Button(onClick = {
-                        comprado = !comprado
-                        onCompraChange(comprado)
-                    }) {
-                        Text(if (comprado) "Comprado ✅" else "Comprar 🛒")
+                    Button(onClick = {onCompraToggle(produto)}) {
+                        Text(if (estaComprado) "Comprado ✅" else "Comprar 🛒")
                     }
                 }
             }
