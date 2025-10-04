@@ -7,18 +7,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.example.estudos.ui.theme.EstudosTheme
-import com.example.estudos.ui.theme.surfaceCardHighlightsDark
 
 data class Produto(val nome: String, val preco: Double)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +46,14 @@ class MainActivity : ComponentActivity() {
                     Produto("Sabonete Infantil", 5.50),
                     Produto("Óleo Corporal", 22.00)
                 )
-                var comprados by remember { mutableStateOf(setOf<String>()) }
+
+                // Usando SnapshotStateMap (estado reativo para mapas)
+                val quantidades = remember { mutableStateMapOf<String, Int>() }
+
+                val totalComprados = quantidades.values.sum()
+                val totalPreco = produtos.sumOf { produto ->
+                    (quantidades[produto.nome] ?: 0) * produto.preco
+                }
 
                 Column(
                     modifier = Modifier
@@ -56,22 +63,26 @@ class MainActivity : ComponentActivity() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Card(
-                        modifier = Modifier
-                            .padding(bottom = 20.dp),
+                        modifier = Modifier.padding(bottom = 20.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         Text(
-                            text = "Produtos Comprados: ${comprados.size}/${produtos.size}",
+                            text = "Produtos Comprados: $totalComprados",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                        Text(
+                            text = "Valor total: R$ %.2f".format(totalPreco),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(10.dp)
                         )
                     }
                     ProdutoCard(
                         produtos = produtos,
-                        comprados = comprados,
-                        onCompraToggle = { produto ->
-                            comprados = if (produto.nome in comprados) { comprados - produto.nome } else {comprados + produto.nome}
-                    }
+                        quantidades = quantidades,
+                        onQuantidadeChange = { produto, novaQtd ->
+                            quantidades[produto.nome] = novaQtd
+                        }
                     )
                 }
             }
@@ -80,38 +91,63 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ProdutoCard(produtos: List<Produto>, comprados: Set<String>, onCompraToggle: (Produto) -> Unit) {
+fun ProdutoCard(
+    produtos: List<Produto>,
+    quantidades: Map<String, Int>,
+    onQuantidadeChange: (Produto, Int) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.padding(5.dp),
-        contentPadding = PaddingValues(bottom = 16.dp), // espaço no fim da lista
-        verticalArrangement = Arrangement.spacedBy(10.dp) // espaço entre itens
+        contentPadding = PaddingValues(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(produtos, key = {produto -> produto.nome}) { produto ->
-            val estaComprado = produto.nome in comprados
+        items(produtos, key = { produto -> produto.nome }) { produto ->
+            val quantidadeComprados = quantidades[produto.nome] ?: 0
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (estaComprado)
-                        surfaceCardHighlightsDark.copy(alpha = 0.5f)
-                    else
-                        MaterialTheme.colorScheme.surfaceContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    Text(
-                        text = "Produto: ${produto.nome}",
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = produto.nome, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.background, shape = RoundedCornerShape(12.dp))
+                                .padding(5.dp),
+                            text = "$quantidadeComprados",
+                            style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                     Text(
                         text = "Preço: R$ %.2f".format(produto.preco),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Spacer(modifier = Modifier.height(5.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            shape = CircleShape,
+                            onClick = {
+                                if (quantidadeComprados > 0) {
+                                    onQuantidadeChange(produto, quantidadeComprados - 1)
+                                }
+                            }
+                        ) { Text("-") }
 
-                    Button(onClick = {onCompraToggle(produto)}) {
-                        Text(if (estaComprado) "Comprado ✅" else "Comprar 🛒")
+                        Button(
+                            shape = CircleShape,
+                            onClick = { onQuantidadeChange(produto, quantidadeComprados + 1) }
+                        ) { Text("+") }
                     }
                 }
             }
